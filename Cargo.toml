@@ -7,6 +7,7 @@ edition = "2024"
 reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
 reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
 reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.5.1" }
 

@@ -7,29 +7,17 @@ use alloy_eips::{
 use alloy_primitives::{
     Address, B64, B256, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, U256, keccak256,
 };
-use alloy_rlp::{
-    BufMut, Decodable, Encodable, RlpDecodable, RlpDecodableWrapper, RlpEncodable, length_of_length,
-};
+use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
-use reth_primitives_traits::InMemorySize;
-// use reth_chainspec::BaseFeeParams;
 use reth_codecs::Compact;
 use reth_db::{
     DatabaseError,
     table::{Compress, Decompress},
 };
+use reth_primitives_traits::InMemorySize;
+use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
-
-// /// Fields specific to pre-merge blocks
-// #[derive(
-//     Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize, RlpEncodable, RlpDecodable,
-// )]
-// #[serde(rename_all = "camelCase")]
-// pub struct PreMergeFields {
-//     pub aura_step: u64,
-//     pub aura_seal: Bytes,
-// }
 
 /// The header type of this node
 ///
@@ -751,15 +739,10 @@ impl alloy_consensus::BlockHeader for GnosisHeader {
 impl InMemorySize for GnosisHeader {
     fn size(&self) -> usize {
         let mut size = self.size_of();
-        // if self.aura_seal.is_some() {
-        //     size += self.aura_seal.as_ref().unwrap().len() + mem::size_of::<u64>(); // aura_seal + aura_step
-        // } else {
-        //     size += mem::size_of::<B64>() + mem::size_of::<u64>(); // mix_hash + nonce
-        // }
-        println!("IS POST MERGE: {}", self.is_post_merge());
         if self.is_post_merge() {
             size += mem::size_of::<B64>() + mem::size_of::<u64>();
         } else {
+            debug!("Pre-merge header detected");
             size += mem::size_of::<Option<u64>>()
                 + self.aura_seal.as_ref().map_or(0, |seal| seal.len());
         }
@@ -853,8 +836,6 @@ impl Encodable for GnosisHeader {
         U256::from(self.gas_used).encode(out);
         self.timestamp.encode(out);
         self.extra_data.encode(out);
-        // self.mix_hash.encode(out);
-        // self.nonce.encode(out);
         if self.is_post_merge() {
             self.mix_hash.unwrap().encode(out);
             self.nonce.unwrap().encode(out);
@@ -899,12 +880,11 @@ impl Encodable for GnosisHeader {
 
 impl Decodable for GnosisHeader {
     fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
-        println!("Buf size: {}", buf.len());
         let rlp_head = alloy_rlp::Header::decode(buf)?;
         if !rlp_head.list {
             return Err(alloy_rlp::Error::UnexpectedString);
         }
-        println!("RLP Header: {:?}", rlp_head);
+
         let started_len = buf.len();
         let mut this = Self {
             parent_hash: Decodable::decode(buf)?,
@@ -935,32 +915,23 @@ impl Decodable for GnosisHeader {
             requests_hash: None,
         };
 
-        // copy the current position of the buffer
-        let pos = buf.len();
-        println!("Buffer Position: {}", pos);
+        let temp_buf = buf.to_owned();
+        let mut temp_buf = &temp_buf[..];
 
-        // buf.
+        // Peek at the next element to determine if it's post-merge or pre-merge
+        let next_head = alloy_rlp::Header::decode(&mut temp_buf)?; // This advances the buffer
 
-        let is_post_merge = false;
+        let is_post_merge = next_head.payload_length == 32; // 32 bytes for mix_hash
+        debug!("Is Post Merge: {}", is_post_merge);
+        debug!("Buf pos now: {}", buf.len());
 
-        // let header = alloy_rlp::Header::decode(buf)?; // Peek at the next element
-        // println!("Next Header: {:?}", header);
         if is_post_merge {
-            println!("Decoding post-merge header fields");
+            debug!("Decoding post-merge header fields");
             // Next field is mix_hash (32 bytes)
-            let b: FixedBytes<32> = Decodable::decode(buf)?;
-            this.mix_hash = Some(b);
-            println!("Decoded mix_hash: {:?}", this.mix_hash);
+            this.mix_hash = Some(Decodable::decode(buf)?);
+            debug!("Decoded mix_hash: {:?}", this.mix_hash);
             this.nonce = Some(B64::decode(buf)?);
-            println!("Decoded nonce: {:?}", this.nonce);
-
-            // // Next field is nonce (8 bytes)
-            // let nonce_header = alloy_rlp::Header::decode(buf)?;
-            // if nonce_header.payload_length == 8 {
-            //     this.nonce = Some(B64::decode(buf)?);
-            // } else {
-            //     return Err(alloy_rlp::Error::Custom("Nonce must be B64 (8 bytes)".into()));
-            // }
+            debug!("Decoded nonce: {:?}", this.nonce);
         } else {
             // Next field is AuRaStep (u64, usually 8 bytes)
             this.aura_step = Some(U256::decode(buf)?);
@@ -1125,5 +1096,30 @@ mod tests {
             "Decoded header should match original header"
         );
         // panic!("check")
+    }
+
+    #[test]
+    fn test_post_merge_encode_decode() {
+        let header = get_sample_post_merge_header();
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+        assert!(
+            !buf.is_empty(),
+            "Header encoding should produce non-empty output"
+        );
+        assert_eq!(
+            buf.len(),
+            header.length(),
+            "Encoded length should match expected length"
+        );
+
+        // Decode the header back
+        let mut buf_slice = &buf[..];
+        let decoded_header = GnosisHeader::decode(&mut buf_slice).expect("Failed to decode header");
+        println!("Decoded Header: {:?}", decoded_header);
+        assert_eq!(
+            decoded_header, header,
+            "Decoded header should match original header"
+        );
     }
 }

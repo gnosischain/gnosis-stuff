@@ -3227,6 +3227,7 @@ dependencies = [
  "reth-codecs",
  "reth-db",
  "reth-primitives-traits",
+ "reth-tracing",
  "serde",
  "serde_with",
 ]
