@@ -5,7 +5,7 @@ use alloy_eips::{
     BlockNumHash, calc_next_block_base_fee, eip1898::BlockWithParent, eip7840::BlobParams,
 };
 use alloy_primitives::{
-    Address, B64, B256, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, U256, keccak256,
+    Address, B64, B256, BlockNumber, Bloom, Bytes, Sealable, U256, keccak256,
 };
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
@@ -652,87 +652,87 @@ impl Sealable for GnosisHeader {
 
 impl alloy_consensus::BlockHeader for GnosisHeader {
     fn parent_hash(&self) -> B256 {
-        self.parent_hash()
+        self.parent_hash
     }
 
     fn ommers_hash(&self) -> B256 {
-        self.ommers_hash()
+        self.ommers_hash
     }
 
     fn beneficiary(&self) -> Address {
-        self.beneficiary()
+        self.beneficiary
     }
 
     fn state_root(&self) -> B256 {
-        self.state_root()
+        self.state_root
     }
 
     fn transactions_root(&self) -> B256 {
-        self.transactions_root()
+        self.transactions_root
     }
 
     fn receipts_root(&self) -> B256 {
-        self.receipts_root()
+        self.receipts_root
     }
 
     fn withdrawals_root(&self) -> Option<B256> {
-        self.withdrawals_root()
+        self.withdrawals_root
     }
 
     fn logs_bloom(&self) -> Bloom {
-        self.logs_bloom()
+        self.logs_bloom
     }
 
     fn difficulty(&self) -> U256 {
-        self.difficulty()
+        self.difficulty
     }
 
     fn number(&self) -> BlockNumber {
-        self.number()
+        self.number
     }
 
     fn gas_limit(&self) -> u64 {
-        self.gas_limit()
+        self.gas_limit
     }
 
     fn gas_used(&self) -> u64 {
-        self.gas_used()
+        self.gas_used
     }
 
     fn timestamp(&self) -> u64 {
-        self.timestamp()
+        self.timestamp
     }
 
     fn mix_hash(&self) -> Option<B256> {
-        self.mix_hash()
+        self.mix_hash
     }
 
     fn nonce(&self) -> Option<B64> {
-        self.nonce()
+        self.nonce
     }
 
     fn base_fee_per_gas(&self) -> Option<u64> {
-        self.base_fee_per_gas()
+        self.base_fee_per_gas
     }
 
     fn blob_gas_used(&self) -> Option<u64> {
-        self.blob_gas_used()
+        self.blob_gas_used
     }
 
     fn excess_blob_gas(&self) -> Option<u64> {
-        self.excess_blob_gas()
+        self.excess_blob_gas
     }
 
     fn parent_beacon_block_root(&self) -> Option<B256> {
-        self.parent_beacon_block_root()
+        self.parent_beacon_block_root
     }
 
     fn requests_hash(&self) -> Option<B256> {
-        self.requests_hash()
+        self.requests_hash
     }
 
     fn extra_data(&self) -> &Bytes {
-        self.extra_data()
+        &self.extra_data
     }
 }
 
