@@ -4,17 +4,10 @@ use alloy_consensus::{Block, BlockBody, EMPTY_OMMER_ROOT_HASH, Header, Sealed};
 use alloy_eips::{
     BlockNumHash, calc_next_block_base_fee, eip1898::BlockWithParent, eip7840::BlobParams,
 };
-use alloy_primitives::{
-    Address, B64, B256, BlockNumber, Bloom, Bytes, Sealable, U256, keccak256,
-};
+use alloy_primitives::{Address, B64, B256, BlockNumber, Bloom, Bytes, Sealable, U256, keccak256};
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
-use reth_codecs::Compact;
-use reth_db::{
-    DatabaseError,
-    table::{Compress, Decompress},
-};
 use reth_primitives_traits::InMemorySize;
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
@@ -750,72 +743,6 @@ impl InMemorySize for GnosisHeader {
     }
 }
 
-impl reth_codecs::Compact for GnosisHeader {
-    fn to_compact<B>(&self, buf: &mut B) -> usize
-    where
-        B: alloy_rlp::bytes::BufMut + AsMut<[u8]>,
-    {
-        // let extra_fields = HeaderExt { requests_hash: self.requests_hash };
-
-        let header = GnosisHeader {
-            parent_hash: self.parent_hash,
-            ommers_hash: self.ommers_hash,
-            beneficiary: self.beneficiary,
-            state_root: self.state_root,
-            transactions_root: self.transactions_root,
-            receipts_root: self.receipts_root,
-            withdrawals_root: self.withdrawals_root,
-            logs_bloom: self.logs_bloom,
-            difficulty: self.difficulty,
-            number: self.number,
-            gas_limit: self.gas_limit,
-            gas_used: self.gas_used,
-            timestamp: self.timestamp,
-            mix_hash: self.mix_hash,
-            nonce: self.nonce.into(),
-            aura_step: self.aura_step,
-            aura_seal: self.aura_seal.clone(),
-            base_fee_per_gas: self.base_fee_per_gas,
-            blob_gas_used: self.blob_gas_used,
-            excess_blob_gas: self.excess_blob_gas,
-            parent_beacon_block_root: self.parent_beacon_block_root,
-            requests_hash: self.requests_hash,
-            extra_data: self.extra_data.clone(),
-        };
-        header.to_compact(buf)
-    }
-
-    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
-        let (header, _) = GnosisHeader::from_compact(buf, len);
-        let alloy_header = Self {
-            parent_hash: header.parent_hash,
-            ommers_hash: header.ommers_hash,
-            beneficiary: header.beneficiary,
-            state_root: header.state_root,
-            transactions_root: header.transactions_root,
-            receipts_root: header.receipts_root,
-            withdrawals_root: header.withdrawals_root,
-            logs_bloom: header.logs_bloom,
-            difficulty: header.difficulty,
-            number: header.number,
-            gas_limit: header.gas_limit,
-            gas_used: header.gas_used,
-            timestamp: header.timestamp,
-            mix_hash: header.mix_hash,
-            nonce: header.nonce.into(),
-            aura_step: header.aura_step,
-            aura_seal: header.aura_seal,
-            base_fee_per_gas: header.base_fee_per_gas,
-            blob_gas_used: header.blob_gas_used,
-            excess_blob_gas: header.excess_blob_gas,
-            parent_beacon_block_root: header.parent_beacon_block_root,
-            requests_hash: header.requests_hash,
-            extra_data: header.extra_data,
-        };
-        (alloy_header, buf)
-    }
-}
-
 impl Encodable for GnosisHeader {
     fn encode(&self, out: &mut dyn BufMut) {
         let list_header = alloy_rlp::Header {
@@ -976,21 +903,6 @@ impl Decodable for GnosisHeader {
             });
         }
         Ok(this)
-    }
-}
-
-impl Compress for GnosisHeader {
-    type Compressed = Vec<u8>;
-
-    fn compress_to_buf<B: alloy_primitives::bytes::BufMut + AsMut<[u8]>>(&self, buf: &mut B) {
-        let _ = Compact::to_compact(self, buf);
-    }
-}
-
-impl Decompress for GnosisHeader {
-    fn decompress(value: &[u8]) -> Result<GnosisHeader, DatabaseError> {
-        let (obj, _) = Compact::from_compact(value, value.len());
-        Ok(obj)
     }
 }
 
