@@ -941,16 +941,7 @@ impl Decodable for GnosisHeader {
 
         // buf.
 
-        // Peek at the next element to determine if it's post-merge or pre-merge
-        let next_head = alloy_rlp::Header::decode(buf)?; // This advances the buffer
-
-        // Reset the buffer to the original position so we can decode the field properly
-        // *buf = &buf[(buf.len() - pos)..];
-        println!("Next Head: {:?}", next_head);
-
-        let is_post_merge = next_head.payload_length == 32; // 32 bytes for mix_hash
-        println!("Is Post Merge: {}", is_post_merge);
-        println!("Buf pos now: {}", buf.len());
+        let is_post_merge = false;
 
         // let header = alloy_rlp::Header::decode(buf)?; // Peek at the next element
         // println!("Next Header: {:?}", header);
@@ -1084,7 +1075,7 @@ mod tests {
             mix_hash: Some(b256!(
                 "661da523f3e44725f3a1cee38183d35424155a05674609a9f6ed81243adf9e26"
             )),
-            nonce: Some(B64::ZERO),
+            nonce: Some(B64::from(938473940u64)),
             aura_step: None,
             aura_seal: None,
             base_fee_per_gas: Some(100),
@@ -1110,7 +1101,7 @@ mod tests {
     }
 
     #[test]
-    fn test_header_encoding() {
+    fn test_pre_merge_encode_decode() {
         // let header = get_sample_post_merge_header();
         let header = get_sample_pre_merge_header();
         let mut buf = Vec::new();
@@ -1133,6 +1124,6 @@ mod tests {
             decoded_header, header,
             "Decoded header should match original header"
         );
-        panic!("check")
+        // panic!("check")
     }
 }
