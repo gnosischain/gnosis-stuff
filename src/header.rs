@@ -4,7 +4,7 @@ use alloy_consensus::{Block, BlockBody, EMPTY_OMMER_ROOT_HASH, Header, Sealed};
 use alloy_eips::{
     BlockNumHash, calc_next_block_base_fee, eip1898::BlockWithParent, eip7840::BlobParams,
 };
-use alloy_primitives::{Address, B64, B256, BlockNumber, Bloom, Bytes, Sealable, U256, keccak256};
+use alloy_primitives::{keccak256, Address, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, B256, B64, U256};
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
@@ -98,7 +98,7 @@ pub struct GnosisHeader {
         feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none")
     )]
-    pub aura_seal: Option<Bytes>,
+    pub aura_seal: Option<FixedBytes<65>>,
     /// A scalar representing EIP1559 base fee which can move up or down each block according
     /// to a formula which is a function of gas used in parent block and gas target
     /// (block gas limit divided by elasticity multiplier) of parent block.
@@ -171,7 +171,7 @@ pub struct GnosisHeader {
 pub mod serde_bincode_compat {
     use std::borrow::Cow;
 
-    use alloy_primitives::{Address, B64, B256, BlockNumber, Bloom, Bytes, U256};
+    use alloy_primitives::{Address, BlockNumber, Bloom, Bytes, FixedBytes, B256, B64, U256};
     use reth_primitives_traits::serde_bincode_compat::SerdeBincodeCompat;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
@@ -214,7 +214,7 @@ pub mod serde_bincode_compat {
         #[serde(default)]
         aura_step: Option<U256>,
         #[serde(default)]
-        aura_seal: Option<Bytes>,
+        aura_seal: Option<FixedBytes<65>>,
         #[serde(default)]
         base_fee_per_gas: Option<u64>,
         #[serde(default)]
@@ -864,7 +864,8 @@ impl Decodable for GnosisHeader {
             this.aura_step = Some(U256::decode(buf)?);
 
             // Next field is AuRaSeal (variable length)
-            this.aura_seal = Some(Bytes::decode(buf)?);
+            let aura_seal_bytes = Bytes::decode(buf)?;
+            this.aura_seal = Some(FixedBytes::<65>::try_from(aura_seal_bytes.as_ref()).map_err(|_| alloy_rlp::Error::Custom("Failed to decode aura_seal as FixedBytes<65>"))?);
         }
 
         if started_len - buf.len() < rlp_head.payload_length {
@@ -913,6 +914,7 @@ mod tests {
     use alloy_primitives::{B256, b256};
 
     fn get_sample_pre_merge_header() -> GnosisHeader {
+        let sample_aura_seal: FixedBytes<65> = FixedBytes::from_slice(b"sample_aura_seal_000000000000000000000000000000000000000000000000");
         GnosisHeader {
             parent_hash: B256::ZERO,
             ommers_hash: B256::ZERO,
@@ -930,7 +932,7 @@ mod tests {
             mix_hash: None,
             nonce: None,
             aura_step: Some(U256::from(1637394693478219i128)),
-            aura_seal: Some(Bytes::from_static(b"aura seal")),
+            aura_seal: Some(sample_aura_seal),
             base_fee_per_gas: Some(73468),
             withdrawals_root: None,
             blob_gas_used: None,
@@ -974,7 +976,7 @@ mod tests {
     fn test_pre_merge_header_size() {
         let header = get_sample_pre_merge_header();
         println!("Header: {:?}", &header);
-        assert_eq!(header.size(), 746); // Adjusted size based on fields
+        assert_eq!(header.size(), 802); // Adjusted size based on fields
     }
 
     #[test]
