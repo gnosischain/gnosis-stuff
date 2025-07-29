@@ -8,6 +8,7 @@ use alloy_primitives::{keccak256, Address, BlockNumber, Bloom, Bytes, FixedBytes
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
+use reth_codecs::Compact;
 use reth_primitives_traits::InMemorySize;
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
@@ -247,7 +248,7 @@ pub mod serde_bincode_compat {
                 mix_hash: value.mix_hash,
                 nonce: value.nonce,
                 aura_step: value.aura_step,
-                aura_seal: value.aura_seal.clone(),
+                aura_seal: value.aura_seal,
                 base_fee_per_gas: value.base_fee_per_gas,
                 blob_gas_used: value.blob_gas_used,
                 excess_blob_gas: value.excess_blob_gas,
@@ -277,7 +278,7 @@ pub mod serde_bincode_compat {
                 mix_hash: value.mix_hash,
                 nonce: value.nonce,
                 aura_step: value.aura_step,
-                aura_seal: value.aura_seal.clone(),
+                aura_seal: value.aura_seal,
                 base_fee_per_gas: value.base_fee_per_gas,
                 blob_gas_used: value.blob_gas_used,
                 excess_blob_gas: value.excess_blob_gas,
@@ -904,6 +905,97 @@ impl Decodable for GnosisHeader {
             });
         }
         Ok(this)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Compact)]
+struct CompactHeader {
+    parent_hash: B256,
+    ommers_hash: B256,
+    beneficiary: Address,
+    state_root: B256,
+    transactions_root: B256,
+    receipts_root: B256,
+    withdrawals_root: Option<B256>,
+    logs_bloom: Bloom,
+    difficulty: U256,
+    number: BlockNumber,
+    gas_limit: u64,
+    gas_used: u64,
+    timestamp: u64,
+    mix_hash: Option<B256>,
+    nonce: Option<u64>,
+    aura_step: Option<U256>,
+    aura_seal: Option<FixedBytes<65>>,
+    base_fee_per_gas: Option<u64>,
+    blob_gas_used: Option<u64>,
+    excess_blob_gas: Option<u64>,
+    parent_beacon_block_root: Option<B256>,
+    requests_hash: Option<B256>,
+    extra_data: Bytes,
+}
+
+impl reth_codecs::Compact for GnosisHeader {
+    fn to_compact<B>(&self, buf: &mut B) -> usize
+    where
+        B: alloy_rlp::bytes::BufMut + AsMut<[u8]>,
+    {
+        let header = CompactHeader {
+            parent_hash: self.parent_hash,
+            ommers_hash: self.ommers_hash,
+            beneficiary: self.beneficiary,
+            state_root: self.state_root,
+            transactions_root: self.transactions_root,
+            receipts_root: self.receipts_root,
+            withdrawals_root: self.withdrawals_root,
+            logs_bloom: self.logs_bloom,
+            difficulty: self.difficulty,
+            number: self.number,
+            gas_limit: self.gas_limit,
+            gas_used: self.gas_used,
+            timestamp: self.timestamp,
+            mix_hash: self.mix_hash,
+            nonce: Some(self.nonce.unwrap().into()),
+            aura_step: self.aura_step,
+            aura_seal: self.aura_seal,
+            base_fee_per_gas: self.base_fee_per_gas,
+            blob_gas_used: self.blob_gas_used,
+            excess_blob_gas: self.excess_blob_gas,
+            parent_beacon_block_root: self.parent_beacon_block_root,
+            requests_hash: self.requests_hash,
+            extra_data: self.extra_data.clone(),
+        };
+        header.to_compact(buf)
+    }
+
+    fn from_compact(buf: &[u8], len: usize) -> (Self, &[u8]) {
+        let (header, _) = CompactHeader::from_compact(buf, len);
+        let alloy_header = Self {
+            parent_hash: header.parent_hash,
+            ommers_hash: header.ommers_hash,
+            beneficiary: header.beneficiary,
+            state_root: header.state_root,
+            transactions_root: header.transactions_root,
+            receipts_root: header.receipts_root,
+            withdrawals_root: header.withdrawals_root,
+            logs_bloom: header.logs_bloom,
+            difficulty: header.difficulty,
+            number: header.number,
+            gas_limit: header.gas_limit,
+            gas_used: header.gas_used,
+            timestamp: header.timestamp,
+            mix_hash: header.mix_hash,
+            nonce: Some(header.nonce.unwrap().into()),
+            aura_step: header.aura_step,
+            aura_seal: header.aura_seal,
+            base_fee_per_gas: header.base_fee_per_gas,
+            blob_gas_used: header.blob_gas_used,
+            excess_blob_gas: header.excess_blob_gas,
+            parent_beacon_block_root: header.parent_beacon_block_root,
+            requests_hash: header.requests_hash,
+            extra_data: header.extra_data,
+        };
+        (alloy_header, buf)
     }
 }
 
