@@ -11,6 +11,7 @@ use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
 use reth_codecs::Compact;
+use reth_db::{table::{Compress, Decompress}, DatabaseError};
 use reth_primitives_traits::{BlockHeader, InMemorySize};
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,7 @@ use serde::{Deserialize, Serialize};
     Default,
     Serialize,
     Deserialize,
+    
 )]
 #[serde(rename_all = "camelCase")]
 pub struct GnosisHeader {
@@ -1007,6 +1009,21 @@ impl reth_codecs::Compact for GnosisHeader {
             extra_data: header.extra_data,
         };
         (alloy_header, buf)
+    }
+}
+
+impl Compress for GnosisHeader {
+    type Compressed = Vec<u8>;
+
+    fn compress_to_buf<B: alloy_primitives::bytes::BufMut + AsMut<[u8]>>(&self, buf: &mut B) {
+        let _ = Compact::to_compact(self, buf);
+    }
+}
+
+impl Decompress for GnosisHeader {
+    fn decompress(value: &[u8]) -> Result<GnosisHeader, DatabaseError> {
+        let (obj, _) = Compact::from_compact(value, value.len());
+        Ok(obj)
     }
 }
 
