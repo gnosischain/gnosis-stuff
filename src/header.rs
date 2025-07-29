@@ -4,7 +4,9 @@ use alloy_consensus::{Block, BlockBody, EMPTY_OMMER_ROOT_HASH, Header, Sealed};
 use alloy_eips::{
     BlockNumHash, calc_next_block_base_fee, eip1898::BlockWithParent, eip7840::BlobParams,
 };
-use alloy_primitives::{keccak256, Address, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, B256, B64, U256};
+use alloy_primitives::{
+    Address, B64, B256, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, U256, keccak256,
+};
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
@@ -172,7 +174,7 @@ pub struct GnosisHeader {
 pub mod serde_bincode_compat {
     use std::borrow::Cow;
 
-    use alloy_primitives::{Address, BlockNumber, Bloom, Bytes, FixedBytes, B256, B64, U256};
+    use alloy_primitives::{Address, B64, B256, BlockNumber, Bloom, Bytes, FixedBytes, U256};
     use reth_primitives_traits::serde_bincode_compat::SerdeBincodeCompat;
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use serde_with::{DeserializeAs, SerializeAs};
@@ -850,23 +852,22 @@ impl Decodable for GnosisHeader {
         let next_head = alloy_rlp::Header::decode(&mut temp_buf)?; // This advances the buffer
 
         let is_post_merge = next_head.payload_length == 32; // 32 bytes for mix_hash
-        debug!("Is Post Merge: {}", is_post_merge);
-        debug!("Buf pos now: {}", buf.len());
 
         if is_post_merge {
-            debug!("Decoding post-merge header fields");
             // Next field is mix_hash (32 bytes)
             this.mix_hash = Some(Decodable::decode(buf)?);
-            debug!("Decoded mix_hash: {:?}", this.mix_hash);
             this.nonce = Some(B64::decode(buf)?);
-            debug!("Decoded nonce: {:?}", this.nonce);
         } else {
             // Next field is AuRaStep (u64, usually 8 bytes)
             this.aura_step = Some(U256::decode(buf)?);
 
             // Next field is AuRaSeal (variable length)
             let aura_seal_bytes = Bytes::decode(buf)?;
-            this.aura_seal = Some(FixedBytes::<65>::try_from(aura_seal_bytes.as_ref()).map_err(|_| alloy_rlp::Error::Custom("Failed to decode aura_seal as FixedBytes<65>"))?);
+            this.aura_seal = Some(
+                FixedBytes::<65>::try_from(aura_seal_bytes.as_ref()).map_err(|_| {
+                    alloy_rlp::Error::Custom("Failed to decode aura_seal as FixedBytes<65>")
+                })?,
+            );
         }
 
         if started_len - buf.len() < rlp_head.payload_length {
@@ -955,7 +956,11 @@ impl reth_codecs::Compact for GnosisHeader {
             gas_used: self.gas_used,
             timestamp: self.timestamp,
             mix_hash: self.mix_hash,
-            nonce: Some(self.nonce.unwrap().into()),
+            nonce: if let Some(n) = self.nonce {
+                Some(n.into())
+            } else {
+                None
+            },
             aura_step: self.aura_step,
             aura_seal: self.aura_seal,
             base_fee_per_gas: self.base_fee_per_gas,
@@ -985,7 +990,11 @@ impl reth_codecs::Compact for GnosisHeader {
             gas_used: header.gas_used,
             timestamp: header.timestamp,
             mix_hash: header.mix_hash,
-            nonce: Some(header.nonce.unwrap().into()),
+            nonce: if let Some(n) = header.nonce {
+                Some(n.into())
+            } else {
+                None
+            },
             aura_step: header.aura_step,
             aura_seal: header.aura_seal,
             base_fee_per_gas: header.base_fee_per_gas,
@@ -1006,7 +1015,9 @@ mod tests {
     use alloy_primitives::{B256, b256};
 
     fn get_sample_pre_merge_header() -> GnosisHeader {
-        let sample_aura_seal: FixedBytes<65> = FixedBytes::from_slice(b"sample_aura_seal_000000000000000000000000000000000000000000000000");
+        let sample_aura_seal: FixedBytes<65> = FixedBytes::from_slice(
+            b"sample_aura_seal_000000000000000000000000000000000000000000000000",
+        );
         GnosisHeader {
             parent_hash: B256::ZERO,
             ommers_hash: B256::ZERO,
@@ -1122,6 +1133,46 @@ mod tests {
         // Decode the header back
         let mut buf_slice = &buf[..];
         let decoded_header = GnosisHeader::decode(&mut buf_slice).expect("Failed to decode header");
+        println!("Decoded Header: {:?}", decoded_header);
+        assert_eq!(
+            decoded_header, header,
+            "Decoded header should match original header"
+        );
+    }
+
+    #[test]
+    fn test_pre_merge_header_compact_decompact() {
+        let header = get_sample_pre_merge_header();
+        let mut buf = Vec::new();
+
+        let compact_len = header.to_compact(&mut buf);
+        assert!(
+            compact_len > 0,
+            "Compact encoding should produce non-empty output"
+        );
+
+        // Decode the header back
+        let (decoded_header, _) = GnosisHeader::from_compact(&buf, compact_len);
+        println!("Decoded Header: {:?}", decoded_header);
+        assert_eq!(
+            decoded_header, header,
+            "Decoded header should match original header"
+        );
+    }
+
+    #[test]
+    fn test_post_merge_header_compact_decompact() {
+        let header = get_sample_post_merge_header();
+        let mut buf = Vec::new();
+
+        let compact_len = header.to_compact(&mut buf);
+        assert!(
+            compact_len > 0,
+            "Compact encoding should produce non-empty output"
+        );
+
+        // Decode the header back
+        let (decoded_header, _) = GnosisHeader::from_compact(&buf, compact_len);
         println!("Decoded Header: {:?}", decoded_header);
         assert_eq!(
             decoded_header, header,
