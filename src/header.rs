@@ -11,7 +11,7 @@ use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
 use reth_codecs::Compact;
-use reth_primitives_traits::InMemorySize;
+use reth_primitives_traits::{BlockHeader, InMemorySize};
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
 
@@ -731,6 +731,8 @@ impl alloy_consensus::BlockHeader for GnosisHeader {
         &self.extra_data
     }
 }
+
+impl reth_primitives_traits::BlockHeader for GnosisHeader {}
 
 impl InMemorySize for GnosisHeader {
     fn size(&self) -> usize {
