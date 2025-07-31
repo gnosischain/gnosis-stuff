@@ -10,9 +10,10 @@ use alloy_primitives::{
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
+use reth_cli_commands::common::CliHeader;
 use reth_codecs::Compact;
 use reth_db::{table::{Compress, Decompress}, DatabaseError};
-use reth_primitives_traits::{BlockHeader, InMemorySize};
+use reth_primitives_traits::{InMemorySize};
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
 
@@ -531,6 +532,10 @@ impl GnosisHeader {
         self.mix_hash.is_some() && self.nonce.is_some()
     }
 
+    pub fn is_pre_merge(&self) -> bool {
+        self.aura_step.is_some() && self.aura_seal.is_some()
+    }
+
     pub fn to_alloy_header(&self) -> Header {
         if self.mix_hash.is_none() || self.nonce.is_none() {
             panic!(
@@ -584,12 +589,12 @@ impl From<Header> for GnosisHeader {
             nonce: Some(inner.nonce),
             aura_seal: None,
             aura_step: None,
-            base_fee_per_gas: None,         // Set later if needed
-            withdrawals_root: None,         // Set later if needed
-            blob_gas_used: None,            // Set later if needed
-            excess_blob_gas: None,          // Set later if needed
-            parent_beacon_block_root: None, // Set later if needed
-            requests_hash: None,            // Set later if needed
+            base_fee_per_gas: inner.base_fee_per_gas,
+            withdrawals_root: inner.withdrawals_root,
+            blob_gas_used: inner.blob_gas_used,
+            excess_blob_gas: inner.excess_blob_gas,
+            parent_beacon_block_root: inner.parent_beacon_block_root,
+            requests_hash: inner.requests_hash,
         }
     }
 }
@@ -752,56 +757,65 @@ impl InMemorySize for GnosisHeader {
 
 impl Encodable for GnosisHeader {
     fn encode(&self, out: &mut dyn BufMut) {
+        let mut buffer = Vec::new();
+
         let list_header = alloy_rlp::Header {
             list: true,
             payload_length: self.header_payload_length(),
         };
-        list_header.encode(out);
-        self.parent_hash.encode(out);
-        self.ommers_hash.encode(out);
-        self.beneficiary.encode(out);
-        self.state_root.encode(out);
-        self.transactions_root.encode(out);
-        self.receipts_root.encode(out);
-        self.logs_bloom.encode(out);
-        self.difficulty.encode(out);
-        U256::from(self.number).encode(out);
-        U256::from(self.gas_limit).encode(out);
-        U256::from(self.gas_used).encode(out);
-        self.timestamp.encode(out);
-        self.extra_data.encode(out);
+        list_header.encode(&mut buffer);
+        self.parent_hash.encode(&mut buffer);
+        self.ommers_hash.encode(&mut buffer);
+        self.beneficiary.encode(&mut buffer);
+        self.state_root.encode(&mut buffer);
+        self.transactions_root.encode(&mut buffer);
+        self.receipts_root.encode(&mut buffer);
+        self.logs_bloom.encode(&mut buffer);
+        self.difficulty.encode(&mut buffer);
+        U256::from(self.number).encode(&mut buffer);
+        U256::from(self.gas_limit).encode(&mut buffer);
+        U256::from(self.gas_used).encode(&mut buffer);
+        self.timestamp.encode(&mut buffer);
+        self.extra_data.encode(&mut buffer);
+
         if self.is_post_merge() {
-            self.mix_hash.unwrap().encode(out);
-            self.nonce.unwrap().encode(out);
+            self.mix_hash.unwrap().encode(&mut buffer);
+            self.nonce.unwrap().encode(&mut buffer);
         } else {
-            self.aura_step.unwrap().encode(out);
-            self.aura_seal.as_ref().unwrap().encode(out);
+            self.aura_step.unwrap().encode(&mut buffer);
+            self.aura_seal.as_ref().unwrap().encode(&mut buffer);
         }
 
         // Encode all the fork specific fields
         if let Some(ref base_fee) = self.base_fee_per_gas {
-            U256::from(*base_fee).encode(out);
+            U256::from(*base_fee).encode(&mut buffer);
         }
 
         if let Some(ref root) = self.withdrawals_root {
-            root.encode(out);
+            root.encode(&mut buffer);
         }
 
         if let Some(ref blob_gas_used) = self.blob_gas_used {
-            U256::from(*blob_gas_used).encode(out);
+            U256::from(*blob_gas_used).encode(&mut buffer);
         }
 
         if let Some(ref excess_blob_gas) = self.excess_blob_gas {
-            U256::from(*excess_blob_gas).encode(out);
+            U256::from(*excess_blob_gas).encode(&mut buffer);
         }
 
         if let Some(ref parent_beacon_block_root) = self.parent_beacon_block_root {
-            parent_beacon_block_root.encode(out);
+            parent_beacon_block_root.encode(&mut buffer);
         }
 
         if let Some(ref requests_hash) = self.requests_hash {
-            requests_hash.encode(out);
+            requests_hash.encode(&mut buffer);
         }
+
+        // let hash = keccak256(&buffer).to_string();
+        // dbg!("Hash: {}", hash);
+
+        // Write the encoded buffer to the output
+        out.put_slice(&buffer);
     }
 
     fn length(&self) -> usize {
@@ -854,7 +868,6 @@ impl Decodable for GnosisHeader {
 
         // Peek at the next element to determine if it's post-merge or pre-merge
         let next_head = alloy_rlp::Header::decode(&mut temp_buf)?; // This advances the buffer
-
         let is_post_merge = next_head.payload_length == 32; // 32 bytes for mix_hash
 
         if is_post_merge {
@@ -1027,6 +1040,12 @@ impl Decompress for GnosisHeader {
     }
 }
 
+impl CliHeader for GnosisHeader {
+    fn set_number(&mut self, number: u64) {
+        self.number = number;
+    }
+}
+
 // tests
 #[cfg(test)]
 mod tests {
@@ -1085,7 +1104,7 @@ mod tests {
             nonce: Some(B64::from(938473940u64)),
             aura_step: None,
             aura_seal: None,
-            base_fee_per_gas: Some(100),
+            base_fee_per_gas: Some(2374659),
             withdrawals_root: None,
             blob_gas_used: None,
             excess_blob_gas: None,
@@ -1157,6 +1176,7 @@ mod tests {
             decoded_header, header,
             "Decoded header should match original header"
         );
+        // panic!("check")
     }
 
     #[test]
