@@ -386,6 +386,14 @@ impl GnosisHeader {
         Some(blob_params.next_block_excess_blob_gas(self.excess_blob_gas?, self.blob_gas_used?))
     }
 
+    /// Convenience function for [`Self::next_block_excess_blob_gas`] with an optional
+    /// [`BlobParams`] argument.
+    ///
+    /// Returns `None` if the `blob_params` are `None`.
+    fn maybe_next_block_excess_blob_gas(&self, blob_params: Option<BlobParams>) -> Option<u64> {
+        self.next_block_excess_blob_gas(blob_params?)
+    }
+
     /// Calculate a heuristic for the in-memory size of the [Header].
     #[inline]
     pub fn size_of(&self) -> usize {
