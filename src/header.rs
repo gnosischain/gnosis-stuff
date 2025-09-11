@@ -12,10 +12,21 @@ use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
 use reth_cli_commands::common::CliHeader;
 use reth_codecs::Compact;
-use reth_db::{table::{Compress, Decompress}, DatabaseError};
-use reth_primitives_traits::{InMemorySize};
+use reth_db::{
+    DatabaseError,
+    table::{Compress, Decompress},
+};
+use reth_primitives_traits::InMemorySize;
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
+
+fn default_mix_hash() -> Option<B256> {
+    Some(B256::ZERO)
+}
+
+fn default_nonce() -> Option<B64> {
+    Some(B64::ZERO)
+}
 
 /// The header type of this node
 ///
@@ -32,7 +43,6 @@ use serde::{Deserialize, Serialize};
     Default,
     Serialize,
     Deserialize,
-    
 )]
 #[serde(rename_all = "camelCase")]
 pub struct GnosisHeader {
@@ -84,14 +94,14 @@ pub struct GnosisHeader {
     /// formally Hm.
     #[cfg_attr(
         feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
+        serde(default=default_mix_hash, skip_serializing_if = "Option::is_none")
     )]
     pub mix_hash: Option<B256>,
     /// A 64-bit value which, combined with the mixhash, proves that a sufficient amount of
     /// computation has been carried out on this block; formally Hn.
     #[cfg_attr(
         feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
+        serde(default=default_nonce, skip_serializing_if = "Option::is_none")
     )]
     pub nonce: Option<B64>,
     /// Gnosis-specific fields for Aura Consensus
