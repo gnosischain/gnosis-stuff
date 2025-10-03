@@ -1232,4 +1232,899 @@ mod tests {
             "Decoded header should match original header"
         );
     }
+
+    #[test]
+    fn test_is_post_merge() {
+        let post_merge_header = get_sample_post_merge_header();
+        assert!(post_merge_header.is_post_merge());
+        assert!(!post_merge_header.is_pre_merge());
+
+        let pre_merge_header = get_sample_pre_merge_header();
+        assert!(!pre_merge_header.is_post_merge());
+        assert!(pre_merge_header.is_pre_merge());
+    }
+
+    #[test]
+    fn test_is_pre_merge_edge_cases() {
+        // Test header with only mix_hash (missing nonce) - should NOT be post-merge
+        let mut header = get_sample_post_merge_header();
+        header.nonce = None;
+        assert!(!header.is_post_merge());
+
+        // Test header with only nonce (missing mix_hash) - should NOT be post-merge
+        let mut header = get_sample_post_merge_header();
+        header.mix_hash = None;
+        assert!(!header.is_post_merge());
+
+        // Test header with only aura_step (missing aura_seal) - should NOT be pre-merge
+        let mut header = get_sample_pre_merge_header();
+        header.aura_seal = None;
+        assert!(!header.is_pre_merge());
+
+        // Test header with only aura_seal (missing aura_step) - should NOT be pre-merge
+        let mut header = get_sample_pre_merge_header();
+        header.aura_step = None;
+        assert!(!header.is_pre_merge());
+
+        // Test header with NEITHER pre-merge nor post-merge fields
+        let mut header = get_sample_post_merge_header();
+        header.mix_hash = None;
+        header.nonce = None;
+        header.aura_step = None;
+        header.aura_seal = None;
+        assert!(!header.is_post_merge());
+        assert!(!header.is_pre_merge());
+    }
+
+    #[test]
+    fn test_hash_slow() {
+        let header = get_sample_post_merge_header();
+        let hash1 = header.hash_slow();
+        let hash2 = header.hash_slow();
+        assert_eq!(hash1, hash2, "Hash should be deterministic");
+        assert_ne!(hash1, B256::ZERO, "Hash should not be zero");
+    }
+
+    #[test]
+    fn test_ommers_hash_is_empty() {
+        let mut header = get_sample_post_merge_header();
+        header.ommers_hash = EMPTY_OMMER_ROOT_HASH;
+        assert!(header.ommers_hash_is_empty());
+
+        header.ommers_hash = B256::ZERO;
+        assert!(!header.ommers_hash_is_empty());
+    }
+
+    #[test]
+    fn test_transaction_root_is_empty() {
+        let mut header = get_sample_post_merge_header();
+        header.transactions_root = EMPTY_ROOT_HASH;
+        assert!(header.transaction_root_is_empty());
+
+        header.transactions_root = B256::ZERO;
+        assert!(!header.transaction_root_is_empty());
+    }
+
+    #[test]
+    fn test_parent_num_hash() {
+        // Test normal case: block 100 should have parent 99
+        let mut header = get_sample_post_merge_header();
+        header.number = 100;
+        header.parent_hash = B256::from([0xAB; 32]);
+
+        let parent = header.parent_num_hash();
+        assert_eq!(parent.number, 99);
+        assert_eq!(parent.hash, B256::from([0xAB; 32]));
+
+        // Test genesis block edge case: block 0 parent is also 0 (saturating_sub)
+        header.number = 0;
+        header.parent_hash = B256::ZERO;
+        let parent = header.parent_num_hash();
+        assert_eq!(parent.number, 0);
+        assert_eq!(parent.hash, B256::ZERO);
+    }
+
+    #[test]
+    fn test_seal() {
+        let header = get_sample_post_merge_header();
+        let hash = B256::from([1u8; 32]);
+        let sealed = header.clone().seal(hash);
+
+        // Verify the hash is stored correctly
+        assert_eq!(sealed.hash(), hash);
+
+        // Verify the sealed header still contains the original header data
+        assert_eq!(sealed.inner(), &header);
+        assert_eq!(sealed.inner().number, header.number);
+        assert_eq!(sealed.inner().parent_hash, header.parent_hash);
+    }
+
+    #[test]
+    fn test_shanghai_active() {
+        let mut header = get_sample_post_merge_header();
+        header.withdrawals_root = None;
+        assert!(!header.shanghai_active());
+
+        header.withdrawals_root = Some(B256::ZERO);
+        assert!(header.shanghai_active());
+    }
+
+    #[test]
+    fn test_cancun_active() {
+        let mut header = get_sample_post_merge_header();
+        header.blob_gas_used = None;
+        assert!(!header.cancun_active());
+
+        header.blob_gas_used = Some(100);
+        assert!(header.cancun_active());
+    }
+
+    #[test]
+    fn test_prague_active() {
+        let mut header = get_sample_post_merge_header();
+        header.requests_hash = None;
+        assert!(!header.prague_active());
+
+        header.requests_hash = Some(B256::ZERO);
+        assert!(header.prague_active());
+    }
+
+    #[test]
+    fn test_header_equality() {
+        let header1 = get_sample_post_merge_header();
+        let header2 = get_sample_post_merge_header();
+        assert_eq!(header1, header2);
+
+        let header3 = get_sample_pre_merge_header();
+        assert_ne!(header1, header3);
+    }
+
+    #[test]
+    fn test_header_clone() {
+        let header = get_sample_post_merge_header();
+        let cloned = header.clone();
+        assert_eq!(header, cloned);
+    }
+
+    #[test]
+    fn test_header_default() {
+        let header = GnosisHeader::default();
+        assert_eq!(header.parent_hash, B256::ZERO);
+        assert_eq!(header.number, 0);
+        assert_eq!(header.gas_limit, 0);
+    }
+
+    #[test]
+    fn test_from_alloy_header() {
+        let alloy_header = Header {
+            parent_hash: B256::ZERO,
+            ommers_hash: B256::ZERO,
+            beneficiary: Address::ZERO,
+            state_root: B256::ZERO,
+            transactions_root: B256::ZERO,
+            receipts_root: B256::ZERO,
+            logs_bloom: Bloom::default(),
+            difficulty: U256::from(1000),
+            number: 1,
+            gas_limit: 1000000,
+            gas_used: 500000,
+            timestamp: 1622547800,
+            extra_data: Bytes::from_static(b"extra data"),
+            mix_hash: b256!("661da523f3e44725f3a1cee38183d35424155a05674609a9f6ed81243adf9e26"),
+            nonce: B64::from(938473940u64),
+            base_fee_per_gas: Some(2374659),
+            withdrawals_root: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_block_root: None,
+            requests_hash: None,
+        };
+
+        let gnosis_header: GnosisHeader = alloy_header.clone().into();
+        assert_eq!(gnosis_header.parent_hash, alloy_header.parent_hash);
+        assert_eq!(gnosis_header.number, alloy_header.number);
+        assert_eq!(gnosis_header.mix_hash, Some(alloy_header.mix_hash));
+        assert_eq!(gnosis_header.nonce, Some(alloy_header.nonce));
+        assert!(gnosis_header.aura_step.is_none());
+        assert!(gnosis_header.aura_seal.is_none());
+    }
+
+    #[test]
+    fn test_to_alloy_header() {
+        let gnosis_header = get_sample_post_merge_header();
+        let alloy_header = gnosis_header.to_alloy_header();
+        assert_eq!(alloy_header.parent_hash, gnosis_header.parent_hash);
+        assert_eq!(alloy_header.number, gnosis_header.number);
+        assert_eq!(alloy_header.mix_hash, gnosis_header.mix_hash.unwrap());
+        assert_eq!(alloy_header.nonce, gnosis_header.nonce.unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "GnosisHeader must have mix_hash and nonce set")]
+    fn test_to_alloy_header_panics_without_mix_hash() {
+        let mut header = get_sample_post_merge_header();
+        header.mix_hash = None;
+        header.to_alloy_header();
+    }
+
+    #[test]
+    #[should_panic(expected = "GnosisHeader must have mix_hash and nonce set")]
+    fn test_to_alloy_header_panics_without_nonce() {
+        let mut header = get_sample_post_merge_header();
+        header.nonce = None;
+        header.to_alloy_header();
+    }
+
+    #[test]
+    fn test_into_alloy_header() {
+        let gnosis_header = get_sample_post_merge_header();
+        let alloy_header: Header = gnosis_header.clone().into();
+        assert_eq!(alloy_header.parent_hash, gnosis_header.parent_hash);
+        assert_eq!(alloy_header.number, gnosis_header.number);
+    }
+
+    #[test]
+    #[should_panic(expected = "GnosisHeader must have mix_hash and nonce set")]
+    fn test_into_alloy_header_panics_pre_merge() {
+        let pre_merge_header = get_sample_pre_merge_header();
+        let _: Header = pre_merge_header.into();
+    }
+
+    #[test]
+    fn test_block_header_trait_methods() {
+        let header = get_sample_post_merge_header();
+
+        assert_eq!(
+            alloy_consensus::BlockHeader::parent_hash(&header),
+            header.parent_hash
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::ommers_hash(&header),
+            header.ommers_hash
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::beneficiary(&header),
+            header.beneficiary
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::state_root(&header),
+            header.state_root
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::transactions_root(&header),
+            header.transactions_root
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::receipts_root(&header),
+            header.receipts_root
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::logs_bloom(&header),
+            header.logs_bloom
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::difficulty(&header),
+            header.difficulty
+        );
+        assert_eq!(alloy_consensus::BlockHeader::number(&header), header.number);
+        assert_eq!(
+            alloy_consensus::BlockHeader::gas_limit(&header),
+            header.gas_limit
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::gas_used(&header),
+            header.gas_used
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::timestamp(&header),
+            header.timestamp
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::mix_hash(&header),
+            header.mix_hash
+        );
+        assert_eq!(alloy_consensus::BlockHeader::nonce(&header), header.nonce);
+        assert_eq!(
+            alloy_consensus::BlockHeader::base_fee_per_gas(&header),
+            header.base_fee_per_gas
+        );
+        assert_eq!(
+            alloy_consensus::BlockHeader::extra_data(&header),
+            &header.extra_data
+        );
+    }
+
+    #[test]
+    fn test_next_block_base_fee() {
+        let mut header = get_sample_post_merge_header();
+        header.base_fee_per_gas = Some(1000);
+
+        let base_fee_params = BaseFeeParams::ethereum();
+        let next_base_fee = header.next_block_base_fee(base_fee_params);
+        assert!(next_base_fee.is_some());
+
+        header.base_fee_per_gas = None;
+        assert!(header.next_block_base_fee(base_fee_params).is_none());
+    }
+
+    #[test]
+    fn test_blob_fee() {
+        let mut header = get_sample_post_merge_header();
+        header.excess_blob_gas = Some(100000);
+
+        let blob_params = BlobParams::cancun();
+        let blob_fee = header.blob_fee(blob_params);
+        assert!(blob_fee.is_some());
+
+        header.excess_blob_gas = None;
+        assert!(header.blob_fee(blob_params).is_none());
+    }
+
+    #[test]
+    fn test_next_block_blob_fee() {
+        let mut header = get_sample_post_merge_header();
+        header.excess_blob_gas = Some(100000);
+        header.blob_gas_used = Some(50000);
+
+        let blob_params = BlobParams::cancun();
+        let next_blob_fee = header.next_block_blob_fee(blob_params);
+        assert!(next_blob_fee.is_some());
+    }
+
+    #[test]
+    fn test_next_block_excess_blob_gas() {
+        let mut header = get_sample_post_merge_header();
+        header.excess_blob_gas = Some(100000);
+        header.blob_gas_used = Some(50000);
+
+        let blob_params = BlobParams::cancun();
+        let next_excess = header.next_block_excess_blob_gas(blob_params);
+        assert!(next_excess.is_some());
+
+        header.excess_blob_gas = None;
+        assert!(header.next_block_excess_blob_gas(blob_params).is_none());
+    }
+
+    #[test]
+    fn test_maybe_next_block_excess_blob_gas() {
+        let mut header = get_sample_post_merge_header();
+        header.excess_blob_gas = Some(100000);
+        header.blob_gas_used = Some(50000);
+
+        let blob_params = Some(BlobParams::cancun());
+        assert!(
+            header
+                .maybe_next_block_excess_blob_gas(blob_params)
+                .is_some()
+        );
+
+        assert!(header.maybe_next_block_excess_blob_gas(None).is_none());
+    }
+
+    #[test]
+    fn test_header_with_all_eip_fields() {
+        let header = GnosisHeader {
+            parent_hash: B256::from([1u8; 32]),
+            ommers_hash: B256::from([2u8; 32]),
+            beneficiary: Address::from([3u8; 20]),
+            state_root: B256::from([4u8; 32]),
+            transactions_root: B256::from([5u8; 32]),
+            receipts_root: B256::from([6u8; 32]),
+            logs_bloom: Bloom::default(),
+            difficulty: U256::from(1000),
+            number: 100,
+            gas_limit: 8000000,
+            gas_used: 4000000,
+            timestamp: 1622547800,
+            extra_data: Bytes::from_static(b"test"),
+            mix_hash: Some(B256::from([7u8; 32])),
+            nonce: Some(B64::from(12345u64)),
+            aura_step: None,
+            aura_seal: None,
+            base_fee_per_gas: Some(1000),
+            withdrawals_root: Some(B256::from([8u8; 32])),
+            blob_gas_used: Some(100000),
+            excess_blob_gas: Some(50000),
+            parent_beacon_block_root: Some(B256::from([9u8; 32])),
+            requests_hash: Some(B256::from([10u8; 32])),
+        };
+
+        assert!(header.shanghai_active());
+        assert!(header.cancun_active());
+        assert!(header.prague_active());
+        assert!(header.is_post_merge());
+
+        // Test encoding/decoding
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn test_pre_merge_header_with_minimal_fields() {
+        let mut seal_bytes = [0u8; 65];
+        seal_bytes[..20].copy_from_slice(b"minimal_aura_seal_00");
+        let sample_aura_seal: FixedBytes<65> = FixedBytes::from_slice(&seal_bytes);
+        let header = GnosisHeader {
+            parent_hash: B256::ZERO,
+            ommers_hash: EMPTY_OMMER_ROOT_HASH,
+            beneficiary: Address::ZERO,
+            state_root: EMPTY_ROOT_HASH,
+            transactions_root: EMPTY_ROOT_HASH,
+            receipts_root: EMPTY_ROOT_HASH,
+            logs_bloom: Bloom::default(),
+            difficulty: U256::from(0),
+            number: 0,
+            gas_limit: 0,
+            gas_used: 0,
+            timestamp: 0,
+            extra_data: Bytes::new(),
+            mix_hash: None,
+            nonce: None,
+            aura_step: Some(U256::from(0)),
+            aura_seal: Some(sample_aura_seal),
+            base_fee_per_gas: None,
+            withdrawals_root: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_block_root: None,
+            requests_hash: None,
+        };
+
+        assert!(header.is_pre_merge());
+        assert!(!header.is_post_merge());
+        assert!(header.ommers_hash_is_empty());
+        assert!(header.transaction_root_is_empty());
+
+        // Test encoding/decoding
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn test_encode_decode_roundtrip_different_aura_steps() {
+        // Test with small aura_step
+        let mut header = get_sample_pre_merge_header();
+        header.aura_step = Some(U256::from(1));
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+
+        // Test with large aura_step
+        header.aura_step = Some(U256::from(u128::MAX));
+        buf.clear();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn test_as_ref() {
+        let header = get_sample_post_merge_header();
+        let header_ref: &GnosisHeader = header.as_ref();
+        assert_eq!(&header, header_ref);
+    }
+
+    #[test]
+    fn test_sealable_trait() {
+        let header = get_sample_post_merge_header();
+        let hash1 = Sealable::hash_slow(&header);
+        let hash2 = header.hash_slow();
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_header_payload_length_consistency() {
+        let header = get_sample_post_merge_header();
+        let payload_length = header.header_payload_length();
+
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+
+        // The total length should be payload + length of length
+        assert_eq!(buf.len(), header.length());
+        assert!(payload_length > 0);
+    }
+
+    #[test]
+    fn test_pre_merge_header_payload_length_consistency() {
+        let header = get_sample_pre_merge_header();
+        let payload_length = header.header_payload_length();
+
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+
+        assert_eq!(buf.len(), header.length());
+        assert!(payload_length > 0);
+    }
+
+    #[test]
+    fn test_compress_decompress() {
+        let header = get_sample_post_merge_header();
+        let compressed = header.clone().compress();
+        let decompressed = GnosisHeader::decompress(&compressed).unwrap();
+        assert_eq!(header, decompressed);
+    }
+
+    #[test]
+    fn test_compress_decompress_pre_merge() {
+        let header = get_sample_pre_merge_header();
+        let compressed = header.clone().compress();
+        let decompressed = GnosisHeader::decompress(&compressed).unwrap();
+        assert_eq!(header, decompressed);
+    }
+
+    #[test]
+    fn test_header_hash_uniqueness() {
+        let header1 = get_sample_post_merge_header();
+        let mut header2 = get_sample_post_merge_header();
+
+        assert_eq!(header1.hash_slow(), header2.hash_slow());
+
+        header2.number += 1;
+        assert_ne!(header1.hash_slow(), header2.hash_slow());
+    }
+
+    #[test]
+    fn test_different_extra_data_sizes() {
+        let mut header = get_sample_post_merge_header();
+
+        // Empty extra data
+        header.extra_data = Bytes::new();
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+
+        // 32 bytes (max size)
+        header.extra_data = Bytes::from(vec![0xFF; 32]);
+        buf.clear();
+        header.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert_eq!(header, decoded);
+    }
+
+    #[test]
+    fn test_memory_size_calculation() {
+        let post_merge = get_sample_post_merge_header();
+        let pre_merge = get_sample_pre_merge_header();
+
+        let post_size = post_merge.size();
+        let pre_size = pre_merge.size();
+
+        assert!(post_size > 0);
+        assert!(pre_size > 0);
+        // Pre-merge should generally be larger due to variable-length aura_seal
+        assert!(pre_size > post_size);
+    }
+
+    #[test]
+    fn test_hash_changes_with_different_fields() {
+        let base = get_sample_post_merge_header();
+        let base_hash = base.hash_slow();
+
+        // Changing each field should produce a different hash
+        let mut modified = base.clone();
+        modified.parent_hash = B256::from([1u8; 32]);
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "parent_hash change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.beneficiary = Address::from([1u8; 20]);
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "beneficiary change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.number += 1;
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "number change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.timestamp += 1;
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "timestamp change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.gas_limit += 1;
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "gas_limit change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.extra_data = Bytes::from_static(b"different");
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "extra_data change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.mix_hash = Some(B256::from([2u8; 32]));
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "mix_hash change should change hash"
+        );
+
+        let mut modified = base.clone();
+        modified.base_fee_per_gas = Some(999999);
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "base_fee_per_gas change should change hash"
+        );
+    }
+
+    #[test]
+    fn test_pre_merge_hash_changes_with_aura_fields() {
+        let base = get_sample_pre_merge_header();
+        let base_hash = base.hash_slow();
+
+        // Changing aura_step should change hash
+        let mut modified = base.clone();
+        modified.aura_step = Some(U256::from(999999));
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "aura_step change should change hash"
+        );
+
+        // Changing aura_seal should change hash
+        let mut modified = base.clone();
+        let mut seal_bytes = [0u8; 65];
+        seal_bytes[0] = 0xFF;
+        modified.aura_seal = Some(FixedBytes::from_slice(&seal_bytes));
+        assert_ne!(
+            modified.hash_slow(),
+            base_hash,
+            "aura_seal change should change hash"
+        );
+    }
+
+    #[test]
+    fn test_encoding_differences_pre_vs_post_merge() {
+        let pre = get_sample_pre_merge_header();
+        let post = get_sample_post_merge_header();
+
+        let mut pre_buf = Vec::new();
+        pre.encode(&mut pre_buf);
+
+        let mut post_buf = Vec::new();
+        post.encode(&mut post_buf);
+
+        // The encoded buffers should be different
+        assert_ne!(
+            pre_buf, post_buf,
+            "Pre-merge and post-merge headers should encode differently"
+        );
+
+        // Verify we can decode them back correctly
+        let pre_decoded = GnosisHeader::decode(&mut &pre_buf[..]).unwrap();
+        assert!(pre_decoded.is_pre_merge());
+        assert!(pre_decoded.aura_step.is_some());
+        assert!(pre_decoded.aura_seal.is_some());
+
+        let post_decoded = GnosisHeader::decode(&mut &post_buf[..]).unwrap();
+        assert!(post_decoded.is_post_merge());
+        assert!(post_decoded.mix_hash.is_some());
+        assert!(post_decoded.nonce.is_some());
+    }
+
+    #[test]
+    fn test_rlp_length_calculation_accuracy() {
+        // Test that the length() method matches actual encoded length
+        let headers = vec![
+            get_sample_pre_merge_header(),
+            get_sample_post_merge_header(),
+        ];
+
+        for header in headers {
+            let mut buf = Vec::new();
+            header.encode(&mut buf);
+
+            assert_eq!(
+                buf.len(),
+                header.length(),
+                "Calculated length should match actual encoded length"
+            );
+        }
+    }
+
+    #[test]
+    fn test_blob_params_without_required_fields() {
+        let mut header = get_sample_post_merge_header();
+
+        // Remove blob gas fields
+        header.blob_gas_used = None;
+        header.excess_blob_gas = None;
+
+        let blob_params = BlobParams::cancun();
+
+        // These should return None when required fields are missing
+        assert!(header.blob_fee(blob_params).is_none());
+        assert!(header.next_block_blob_fee(blob_params).is_none());
+        assert!(header.next_block_excess_blob_gas(blob_params).is_none());
+    }
+
+    #[test]
+    fn test_decode_distinguishes_32byte_vs_variable_length() {
+        // This is a CRITICAL test: the decoder peeks at the next RLP field
+        // and decides if it's 32 bytes (post-merge mix_hash) or variable (pre-merge aura_step)
+
+        // Create a pre-merge header with a small aura_step (will be < 32 bytes when RLP encoded)
+        let mut pre_merge = get_sample_pre_merge_header();
+        pre_merge.aura_step = Some(U256::from(42)); // Small value
+
+        let mut buf = Vec::new();
+        pre_merge.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+
+        // Should be decoded as pre-merge
+        assert!(decoded.is_pre_merge());
+        assert_eq!(decoded.aura_step, Some(U256::from(42)));
+        assert!(decoded.mix_hash.is_none());
+
+        // Create a post-merge header - mix_hash is always 32 bytes
+        let post_merge = get_sample_post_merge_header();
+        buf.clear();
+        post_merge.encode(&mut buf);
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+
+        // Should be decoded as post-merge
+        assert!(decoded.is_post_merge());
+        assert!(decoded.aura_step.is_none());
+        assert!(decoded.mix_hash.is_some());
+    }
+
+    #[test]
+    fn test_mixed_consensus_header_encodes_as_post_merge() {
+        // A header with BOTH consensus fields is weird but technically possible
+        let mut header = get_sample_post_merge_header();
+
+        // Add aura fields (this would be invalid in practice)
+        let mut seal_bytes = [0u8; 65];
+        seal_bytes[..20].copy_from_slice(b"sample_aura_seal_000");
+        let sample_aura_seal: FixedBytes<65> = FixedBytes::from_slice(&seal_bytes);
+
+        header.aura_step = Some(U256::from(123));
+        header.aura_seal = Some(sample_aura_seal);
+
+        // is_post_merge() returns true because mix_hash && nonce are Some
+        assert!(header.is_post_merge());
+
+        // When encoded, it should use post-merge path (mix_hash + nonce)
+        // and IGNORE the aura fields
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+
+        // When decoded, it should only have post-merge fields
+        // The aura fields were NOT encoded, so they'll be None
+        let decoded = GnosisHeader::decode(&mut &buf[..]).unwrap();
+        assert!(decoded.is_post_merge());
+        assert!(decoded.mix_hash.is_some());
+        assert!(decoded.nonce.is_some());
+        assert!(decoded.aura_step.is_none());
+        assert!(decoded.aura_seal.is_none());
+    }
+
+    #[test]
+    fn test_header_payload_length_differs_by_consensus_type() {
+        let pre = get_sample_pre_merge_header();
+        let post = get_sample_post_merge_header();
+
+        let pre_len = pre.header_payload_length();
+        let post_len = post.header_payload_length();
+
+        // They should have different payload lengths because:
+        // - pre-merge has aura_step (U256) and aura_seal (65 bytes)
+        // - post-merge has mix_hash (32 bytes) and nonce (8 bytes)
+        assert_ne!(
+            pre_len, post_len,
+            "Pre-merge and post-merge should have different payload lengths"
+        );
+    }
+
+    #[test]
+    fn test_encode_then_modify_doesnt_change_original() {
+        let header = get_sample_post_merge_header();
+        let original_hash = header.hash_slow();
+
+        let mut buf = Vec::new();
+        header.encode(&mut buf);
+
+        // Verify encoding didn't mutate the header
+        assert_eq!(header.hash_slow(), original_hash);
+    }
+
+    #[test]
+    fn test_alloy_header_roundtrip_preserves_all_fields() {
+        // Create a complex post-merge header with many EIP fields
+        let mut original = get_sample_post_merge_header();
+        original.parent_hash = B256::from([1u8; 32]);
+        original.beneficiary = Address::from([2u8; 20]);
+        original.number = 12345;
+        original.base_fee_per_gas = Some(7890);
+        original.withdrawals_root = Some(B256::from([3u8; 32]));
+        original.blob_gas_used = Some(111);
+        original.excess_blob_gas = Some(222);
+        original.parent_beacon_block_root = Some(B256::from([4u8; 32]));
+        original.requests_hash = Some(B256::from([5u8; 32]));
+
+        // Convert to alloy and back
+        let alloy: Header = original.clone().into();
+        let back: GnosisHeader = alloy.into();
+
+        // All fields should be preserved
+        assert_eq!(back.parent_hash, original.parent_hash);
+        assert_eq!(back.beneficiary, original.beneficiary);
+        assert_eq!(back.number, original.number);
+        assert_eq!(back.base_fee_per_gas, original.base_fee_per_gas);
+        assert_eq!(back.withdrawals_root, original.withdrawals_root);
+        assert_eq!(back.blob_gas_used, original.blob_gas_used);
+        assert_eq!(back.excess_blob_gas, original.excess_blob_gas);
+        assert_eq!(
+            back.parent_beacon_block_root,
+            original.parent_beacon_block_root
+        );
+        assert_eq!(back.requests_hash, original.requests_hash);
+        assert_eq!(back.mix_hash, original.mix_hash);
+        assert_eq!(back.nonce, original.nonce);
+
+        // Aura fields should be None
+        assert!(back.aura_step.is_none());
+        assert!(back.aura_seal.is_none());
+    }
+
+    #[test]
+    fn test_compact_encoding_is_deterministic() {
+        let header = get_sample_post_merge_header();
+
+        let mut buf1 = Vec::new();
+        let len1 = header.to_compact(&mut buf1);
+
+        let mut buf2 = Vec::new();
+        let len2 = header.to_compact(&mut buf2);
+
+        assert_eq!(len1, len2);
+        assert_eq!(buf1, buf2, "Compact encoding should be deterministic");
+    }
+
+    #[test]
+    fn test_size_increases_with_extra_data() {
+        let mut header1 = get_sample_post_merge_header();
+        header1.extra_data = Bytes::new();
+        let size1 = header1.size();
+
+        let mut header2 = get_sample_post_merge_header();
+        header2.extra_data = Bytes::from(vec![0xFF; 32]);
+        let size2 = header2.size();
+
+        assert!(
+            size2 > size1,
+            "Header with more extra_data should have larger size"
+        );
+        assert_eq!(
+            size2 - size1,
+            32,
+            "Size difference should equal extra_data length difference"
+        );
+    }
 }
