@@ -20,11 +20,11 @@ use reth_primitives_traits::InMemorySize;
 use reth_tracing::tracing::debug;
 use serde::{Deserialize, Serialize};
 
-fn default_mix_hash() -> Option<B256> {
+pub fn default_mix_hash() -> Option<B256> {
     Some(B256::ZERO)
 }
 
-fn default_nonce() -> Option<B64> {
+pub fn default_nonce() -> Option<B64> {
     Some(B64::ZERO)
 }
 
@@ -400,7 +400,7 @@ impl GnosisHeader {
     /// [`BlobParams`] argument.
     ///
     /// Returns `None` if the `blob_params` are `None`.
-    fn maybe_next_block_excess_blob_gas(&self, blob_params: Option<BlobParams>) -> Option<u64> {
+    pub fn maybe_next_block_excess_blob_gas(&self, blob_params: Option<BlobParams>) -> Option<u64> {
         self.next_block_excess_blob_gas(blob_params?)
     }
 
@@ -829,9 +829,6 @@ impl Encodable for GnosisHeader {
             requests_hash.encode(&mut buffer);
         }
 
-        // let hash = keccak256(&buffer).to_string();
-        // dbg!("Hash: {}", hash);
-
         // Write the encoded buffer to the output
         out.put_slice(&buffer);
     }
@@ -881,11 +878,10 @@ impl Decodable for GnosisHeader {
             requests_hash: None,
         };
 
-        let temp_buf = buf.to_owned();
-        let mut temp_buf = &temp_buf[..];
-
-        // Peek at the next element to determine if it's post-merge or pre-merge
-        let next_head = alloy_rlp::Header::decode(&mut temp_buf)?; // This advances the buffer
+        // Peek at the next RLP header without advancing buf
+        // Create a temporary immutable slice to peek
+        let peek_slice = &buf[..];
+        let next_head = alloy_rlp::Header::decode(&mut &peek_slice[..])?;
         let is_post_merge = next_head.payload_length == 32; // 32 bytes for mix_hash
 
         if is_post_merge {

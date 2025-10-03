@@ -27,5 +27,16 @@ serde_with = "3"
 test-fuzz = { version = "7.2.0" }
 modular-bitfield = { version = "0.11.2" }
 
+[dependencies.criterion]
+version = "0.5"
+features = ["html_reports"]
+optional = true
+
 [features]
 serde = []
+bench = ["criterion"]
+
+[[bench]]
+name = "header_performance"
+harness = false
+required-features = ["bench"]
