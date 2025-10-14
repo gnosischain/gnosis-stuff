@@ -1,21 +1,21 @@
 [package]
 name = "gnosis-primitives"
-version = "0.0.5"
+version = "0.1.8"
 edition = "2024"
 
 [dependencies]
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.7.0" }
+reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.8.2" }
 
 alloy-primitives = { version = "1.3.1", default-features = false }
 
-alloy-consensus = { version = "1.0.30", default-features = false }
-alloy-eips = { version = "1.0.30", default-features = false }
+alloy-consensus = { version = "1.0.37", default-features = false }
+alloy-eips = { version = "1.0.37", default-features = false }
 
 alloy-rlp = { version = "0.3.10", default-features = false }
 
