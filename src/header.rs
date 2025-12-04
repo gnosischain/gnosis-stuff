@@ -393,15 +393,11 @@ impl GnosisHeader {
     ///
     /// Returns a `None` if no excess blob gas is set, no EIP-4844 support
     pub fn next_block_excess_blob_gas(&self, blob_params: BlobParams) -> Option<u64> {
-        Some(blob_params.next_block_excess_blob_gas(self.excess_blob_gas?, self.blob_gas_used?))
-    }
-
-    /// Convenience function for [`Self::next_block_excess_blob_gas`] with an optional
-    /// [`BlobParams`] argument.
-    ///
-    /// Returns `None` if the `blob_params` are `None`.
-    pub fn maybe_next_block_excess_blob_gas(&self, blob_params: Option<BlobParams>) -> Option<u64> {
-        self.next_block_excess_blob_gas(blob_params?)
+        Some(blob_params.next_block_excess_blob_gas_osaka(
+            self.excess_blob_gas?,
+            self.blob_gas_used?,
+            self.base_fee_per_gas?,
+        ))
     }
 
     /// Calculate a heuristic for the in-memory size of the [Header].
@@ -1583,22 +1579,6 @@ mod tests {
 
         header.excess_blob_gas = None;
         assert!(header.next_block_excess_blob_gas(blob_params).is_none());
-    }
-
-    #[test]
-    fn test_maybe_next_block_excess_blob_gas() {
-        let mut header = get_sample_post_merge_header();
-        header.excess_blob_gas = Some(100000);
-        header.blob_gas_used = Some(50000);
-
-        let blob_params = Some(BlobParams::cancun());
-        assert!(
-            header
-                .maybe_next_block_excess_blob_gas(blob_params)
-                .is_some()
-        );
-
-        assert!(header.maybe_next_block_excess_blob_gas(None).is_none());
     }
 
     #[test]
