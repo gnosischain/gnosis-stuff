@@ -4,13 +4,13 @@ version = "0.1.8"
 edition = "2024"
 
 [dependencies]
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3" }
+reth = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-codecs = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
 
 alloy-primitives = { version = "1.4.1", default-features = false }
 
