@@ -3563,12 +3563,13 @@ dependencies = [
 
 [[package]]
 name = "gnosis-primitives"
-version = "0.1.8"
+version = "0.1.93"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-serde",
  "alloy-trie",
  "criterion",
  "derive_more",
