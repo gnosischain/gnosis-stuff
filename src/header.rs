@@ -5,12 +5,12 @@ use alloy_eips::{
     BlockNumHash, calc_next_block_base_fee, eip1898::BlockWithParent, eip7840::BlobParams,
 };
 use alloy_primitives::{
-    Address, B64, B256, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, U256, keccak256,
+    Address, B64, B256, BlockHash, BlockNumber, Bloom, Bytes, FixedBytes, Sealable, U256, keccak256,
 };
 use alloy_rlp::{BufMut, Decodable, Encodable, length_of_length};
 use alloy_trie::EMPTY_ROOT_HASH;
 use reth_chainspec::BaseFeeParams;
-use reth_cli_commands::common::CliHeader;
+use reth_cli_commands::common::HeaderMut;
 use reth_codecs::Compact;
 use reth_db::{
     DatabaseError,
@@ -1020,9 +1020,25 @@ impl Decompress for GnosisHeader {
     }
 }
 
-impl CliHeader for GnosisHeader {
-    fn set_number(&mut self, number: u64) {
+impl HeaderMut for GnosisHeader {
+    fn set_parent_hash(&mut self, hash: BlockHash) {
+        self.parent_hash = hash;
+    }
+
+    fn set_block_number(&mut self, number: BlockNumber) {
         self.number = number;
+    }
+
+    fn set_timestamp(&mut self, timestamp: u64) {
+        self.timestamp = timestamp;
+    }
+
+    fn set_state_root(&mut self, state_root: B256) {
+        self.state_root = state_root;
+    }
+
+    fn set_difficulty(&mut self, difficulty: U256) {
+        self.difficulty = difficulty;
     }
 }
 
@@ -2076,5 +2092,12 @@ mod tests {
             32,
             "Size difference should equal extra_data length difference"
         );
+    }
+
+    #[test]
+    fn test_header_set_number() {
+        let mut header = get_sample_post_merge_header();
+        header.set_number(42);
+        assert_eq!(header.number, 42);
     }
 }

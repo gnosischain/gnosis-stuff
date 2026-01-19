@@ -1,37 +1,43 @@
 [package]
 name = "gnosis-primitives"
-version = "0.1.93"
+version = "0.1.100"
 edition = "2024"
 
 [dependencies]
-reth = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-db = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", branch = "v1.9.3-gnosis" }
+reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
 
-alloy-primitives = { version = "1.4.1", default-features = false }
+# Force specific vergen versions to avoid conflicts
+vergen = "=9.0.6"
+vergen-git2 = "=1.0.7"
+vergen-lib = "=0.1.6"
 
-alloy-consensus = { version = "1.0.41", default-features = false }
-alloy-eips = { version = "1.0.41", default-features = false }
+alloy-primitives = { version = "1.5.0", default-features = false }
+
+alloy-consensus = { version = "1.4.3", default-features = false }
+alloy-eips = { version = "1.4.3", default-features = false }
+alloy-serde = { version = "1.4.3", default-features = false }
 
 alloy-rlp = { version = "0.3.10", default-features = false }
-alloy-serde = { version = "1.0.41", default-features = false }
 
 serde = { version = "1.0", features = ["derive"], default-features = false }
 derive_more = { version = "2", default-features = false, features = ["full"] }
 
 alloy-trie = { version = "0.9.1", features = ["ethereum"] }
 serde_with = "3"
-test-fuzz = { version = "7.2.0" }
+test-fuzz = { version = "7" }
 modular-bitfield = { version = "0.11.2" }
 
 [dependencies.criterion]
 version = "0.5"
 features = ["html_reports"]
 optional = true
+
 
 [features]
 default = []
