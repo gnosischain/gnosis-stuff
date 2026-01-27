@@ -1,21 +1,21 @@
 [package]
 name = "gnosis-primitives"
-version = "0.1.100"
+version = "0.1.102"
 edition = "2024"
 
 [dependencies]
-reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
-reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+reth = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-db = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-codecs = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-tracing = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-chainspec = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-cli-commands = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
+reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.2" }
 
 # Force specific vergen versions to avoid conflicts
-vergen = "=9.0.6"
-vergen-git2 = "=1.0.7"
-vergen-lib = "=0.1.6"
+# vergen = "=9.0.6"
+# vergen-git2 = "=1.0.7"
+# vergen-lib = "=0.1.6"
 
 alloy-primitives = { version = "1.5.0", default-features = false }
 
